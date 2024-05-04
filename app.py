@@ -1,5 +1,9 @@
 import socket
 import ssl
+import platform
+os_name = platform.system()
+os_version = platform.release()
+machine_type = platform.machine()
 
 class URL:
     def __init__(self, url):
@@ -46,6 +50,8 @@ class URL:
             response_headers[header.casefold()] = value.strip()
         assert "transfer-encoding" not in response_headers
         assert "content-encoding" not in response_headers
+        response_headers['Connection'] = 'close'
+        response_headers['User-Agent'] = f'Mozilla/5.0 ({os_name} {os_version}; {machine_type})'
         content = response.read()
         s.close()
         return content
@@ -62,9 +68,8 @@ def show(body):
             print(c, end="")
 
 def load(url):
-    body = url.request(80)
+    body = url.request()
     show(body)
-
 
 
 if __name__ == "__main__":
