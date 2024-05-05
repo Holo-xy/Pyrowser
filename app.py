@@ -58,13 +58,23 @@ class URL:
 
 def show(body):
     in_tag = False
-    for c in body:
+    i = 0
+    while i < len(body):
+        c = body[i]
         if c == "<":
             in_tag = True
         elif c == ">":
             in_tag = False
+        elif i+3 < len(body) and c == '&':
+            if body[i:i + 4] == '&lt;':
+                print('<',end="")
+                i += 3
+            elif body[i:i + 4] == '&gt;':
+                print('>',end="")
+                i += 3
         elif not in_tag:
-            print(c, end="")
+            print(c,end="")
+        i += 1
 
 def load(url):
     body = url.request()
