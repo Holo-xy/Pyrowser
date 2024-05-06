@@ -7,6 +7,9 @@ machine_type = platform.machine()
 
 class URL:
     def __init__(self, url):
+        self.view_source = ''
+        if url.startswith("view-source"):
+            self.view_source, url = url.split(":",1)
         self.scheme, url = url.split("://", 1)
         assert self.scheme in ["http", "https", "file"]
         if self.scheme == "http":
@@ -55,6 +58,9 @@ class URL:
         assert "content-encoding" not in response_headers
         content = response.read()
         s.close()
+        if self.view_source:
+            view_source(content)
+            return ''
         return content
 
     def file_handler(self):
@@ -62,6 +68,20 @@ class URL:
         file = open(path,'r')
         return file.read()
 
+def view_source(body):
+    i = 0
+    while i < len(body):
+        c = body[i]
+        if i + 3 < len(body) and c == '&':
+            if body[i:i + 4] == '&lt;':
+                print('<', end="")
+                i += 3
+            elif body[i:i + 4] == '&gt;':
+                print('>', end="")
+                i += 3
+        else:
+            print(c,end='')
+        i += 1
 def show(body):
     in_tag = False
     i = 0
