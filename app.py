@@ -8,7 +8,7 @@ machine_type = platform.machine()
 class URL:
     def __init__(self, url):
         self.scheme, url = url.split("://", 1)
-        assert self.scheme in ["http", "https"]
+        assert self.scheme in ["http", "https", "file"]
         if self.scheme == "http":
             self.port = 80
         elif self.scheme == "https":
@@ -23,6 +23,8 @@ class URL:
             self.port = int(port)
 
     def request(self,):
+        if self.scheme == "file":
+            return self.file_handler()
         s = socket.socket(
             family=socket.AF_INET,
             type=socket.SOCK_STREAM,
@@ -55,6 +57,10 @@ class URL:
         s.close()
         return content
 
+    def file_handler(self):
+        path = self.path[1:]
+        file = open(path,'r')
+        return file.read()
 
 def show(body):
     in_tag = False
@@ -83,4 +89,6 @@ def load(url):
 
 if __name__ == "__main__":
     import sys
+    if len (sys.argv) < 2:
+        sys.argv.append('file:///E:/Pyrowser/default.txt')
     load(URL(sys.argv[1]))
