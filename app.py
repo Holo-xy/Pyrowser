@@ -1,15 +1,19 @@
 import socket
 import ssl
 import platform
+
 os_name = platform.system()
 os_version = platform.release()
 machine_type = platform.machine()
 
+
 class URL:
+    max_redirects = 3
+
     def __init__(self, url):
         self.view_source = ''
         if url.startswith("view-source"):
-            self.view_source, url = url.split(":",1)
+            self.view_source, url = url.split(":", 1)
         self.scheme, url = url.split("://", 1)
         assert self.scheme in ["http", "https", "file"]
         if self.scheme == "http":
@@ -25,7 +29,7 @@ class URL:
             self.host, port = self.host.split(":", 1)
             self.port = int(port)
 
-    def request(self,):
+    def request(self):
         if self.scheme == "file":
             return self.file_handler()
         s = socket.socket(
@@ -41,7 +45,6 @@ class URL:
         s.connect((self.host, self.port))
         request = "GET {} HTTP/1.0\r\n".format(self.path)
         request += "Host: {}\r\n".format(self.host)
-        request += "Connection: close\r\n"
         request += "User-Agent: " + f'Mozilla/5.0 ({os_name} {os_version}; {machine_type})\r\n'
         request += "\r\n"
         s.send(request.encode("utf8"))
@@ -57,6 +60,20 @@ class URL:
         assert "transfer-encoding" not in response_headers
         assert "content-encoding" not in response_headers
         content = response.read()
+
+        # Handle Redirects
+        if status.startswith('3'):
+            if URL.max_redirects == 0:
+                return ''
+            URL.max_redirects -= 1
+            path = response_headers['location']
+            if path.startswith("/"):
+                url = self.scheme + "://" + self.host + path
+                content = URL(url).request()
+            else:
+                content = URL(path).request()
+            URL.max_redirects = 3
+
         s.close()
         if self.view_source:
             view_source(content)
@@ -65,8 +82,9 @@ class URL:
 
     def file_handler(self):
         path = self.path[1:]
-        file = open(path,'r')
+        file = open(path, 'r')
         return file.read()
+
 
 def view_source(body):
     i = 0
@@ -80,8 +98,10 @@ def view_source(body):
                 print('>', end="")
                 i += 3
         else:
-            print(c,end='')
+            print(c, end='')
         i += 1
+
+
 def show(body):
     in_tag = False
     i = 0
@@ -91,16 +111,17 @@ def show(body):
             in_tag = True
         elif c == ">":
             in_tag = False
-        elif i+3 < len(body) and c == '&':
+        elif i + 3 < len(body) and c == '&':
             if body[i:i + 4] == '&lt;':
-                print('<',end="")
+                print('<', end="")
                 i += 3
             elif body[i:i + 4] == '&gt;':
-                print('>',end="")
+                print('>', end="")
                 i += 3
         elif not in_tag:
-            print(c,end="")
+            print(c, end="")
         i += 1
+
 
 def load(url):
     body = url.request()
@@ -109,6 +130,7 @@ def load(url):
 
 if __name__ == "__main__":
     import sys
-    if len (sys.argv) < 2:
+
+    if len(sys.argv) < 2:
         sys.argv.append('file:///E:/Pyrowser/default.txt')
     load(URL(sys.argv[1]))
