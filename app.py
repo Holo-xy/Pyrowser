@@ -1,7 +1,8 @@
 import socket
 import ssl
 import platform
-
+import gzip
+import io
 os_name = platform.system()
 os_version = platform.release()
 machine_type = platform.machine()
@@ -48,18 +49,32 @@ class URL:
         request += "User-Agent: " + f'Mozilla/5.0 ({os_name} {os_version}; {machine_type})\r\n'
         request += "\r\n"
         s.send(request.encode("utf8"))
-        response = s.makefile("r", encoding="utf8", newline="\r\n")
-        statusline = response.readline()
+
+        response = b""
+        while True:
+            data = s.recv(4096)
+            if not data:
+                break
+            response += data
+        s.close()
+        response = io.BytesIO(response)
+
+        statusline = response.readline().decode("utf8")
         version, status, explanation = statusline.split(" ", 2)
         response_headers = {}
         while True:
-            line = response.readline()
+            line = response.readline().decode("utf8")
             if line == "\r\n": break
             header, value = line.split(":", 1)
             response_headers[header.casefold()] = value.strip()
-        assert "transfer-encoding" not in response_headers
-        assert "content-encoding" not in response_headers
+
         content = response.read()
+
+        # Chunked and compressed data handling
+        if response_headers.get("transfer-encoding") and response_headers["transfer-encoding"] == "chunked":
+            content = process_chunked(content)
+        if response_headers.get("content-encoding") and response_headers["content-encoding"] == "gzip":
+            content = gzip.decompress(content)
 
         # Handle Redirects
         if status.startswith('3'):
@@ -74,11 +89,10 @@ class URL:
                 content = URL(path).request()
             URL.max_redirects = 3
 
-        s.close()
         if self.view_source:
             view_source(content)
             return ''
-        return content
+        return content.decode("utf8")
 
     def file_handler(self):
         path = self.path[1:]
@@ -123,14 +137,23 @@ def show(body):
         i += 1
 
 
+def process_chunked(chunked_data):
+    data = b""
+    while chunked_data:
+        chunk_size, rest = chunked_data.split(b"\r\n", 1)
+        chunk_size = int(chunk_size, 16)
+        chunk, chunked_data = rest[:chunk_size], rest[chunk_size + 2:]
+        data += chunk
+    return data
+
+
 def load(url):
     body = url.request()
-    show(body)
+    view_source(body)
 
 
 if __name__ == "__main__":
     import sys
-
     if len(sys.argv) < 2:
         sys.argv.append('file:///E:/Pyrowser/default.txt')
     load(URL(sys.argv[1]))
