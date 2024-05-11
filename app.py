@@ -3,10 +3,13 @@ import ssl
 import platform
 import gzip
 import io
+import tkinter
 os_name = platform.system()
 os_version = platform.release()
 machine_type = platform.machine()
-
+WIDTH, HEIGHT = 800, 600
+HSTEP, VSTEP = 13, 18
+SCROLL_STEP = 100
 
 class URL:
     max_redirects = 3
@@ -101,23 +104,26 @@ class URL:
 
 
 def view_source(body):
+    text = ""
     i = 0
     while i < len(body):
         c = body[i]
-        if i + 3 < len(body) and c == '&':
+        if c == '&':
             if body[i:i + 4] == '&lt;':
-                print('<', end="")
+                text += '<'
                 i += 3
             elif body[i:i + 4] == '&gt;':
-                print('>', end="")
+                text += '>'
                 i += 3
         else:
-            print(c, end='')
+            text += c
         i += 1
+    return text
 
 
-def show(body):
+def lex(body):
     in_tag = False
+    text = ""
     i = 0
     while i < len(body):
         c = body[i]
@@ -125,16 +131,17 @@ def show(body):
             in_tag = True
         elif c == ">":
             in_tag = False
-        elif i + 3 < len(body) and c == '&':
+        elif c == '&':
             if body[i:i + 4] == '&lt;':
-                print('<', end="")
+                text += '<'
                 i += 3
             elif body[i:i + 4] == '&gt;':
-                print('>', end="")
+                text += '>'
                 i += 3
         elif not in_tag:
-            print(c, end="")
+            text += c
         i += 1
+    return text
 
 
 def process_chunked(chunked_data):
@@ -147,13 +154,57 @@ def process_chunked(chunked_data):
     return data
 
 
-def load(url):
-    body = url.request()
-    view_source(body)
+def layout(text):
+    display_list = []
+    cursor_x, cursor_y = HSTEP, VSTEP
+    for c in text:
+        display_list.append((cursor_x, cursor_y, c))
+        cursor_x += HSTEP
+        if cursor_x >= WIDTH - HSTEP:
+            cursor_x = HSTEP
+            cursor_y += VSTEP
+
+    return display_list
+
+
+class Browser:
+    def __init__(self):
+        self.window = tkinter.Tk()
+
+        self.canvas = tkinter.Canvas(self.window, width=WIDTH, height=HEIGHT)
+        self.canvas.pack()
+
+        self.display_list = []
+
+        self.scroll = 0
+        self.window.bind("<Down>", self.scrolldown)
+        self.window.bind("<Up>", self.scrollup)
+
+    def draw(self):
+        self.canvas.delete("all")
+        for x, y, c in self.display_list:
+            if y > self.scroll + HEIGHT: continue
+            if y + VSTEP < self.scroll: continue
+            self.canvas.create_text(x, y - self.scroll, text=c)
+
+    def load(self, url):
+        body = url.request()
+        text = lex(body)
+        self.display_list = layout(text)
+        self.draw()
+
+    def scrolldown(self, e):
+        self.scroll += SCROLL_STEP
+        self.draw()
+
+    def scrollup(self,e):
+        self.scroll -= SCROLL_STEP
+        self.draw()
 
 
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
         sys.argv.append('file:///E:/Pyrowser/default.txt')
-    load(URL(sys.argv[1]))
+    Browser().load(URL(sys.argv[1]))
+    tkinter.mainloop()
