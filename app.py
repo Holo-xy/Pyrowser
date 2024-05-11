@@ -179,7 +179,7 @@ class Browser:
         self.scroll = 0
         self.window.bind("<Down>", self.scrolldown)
         self.window.bind("<Up>", self.scrollup)
-
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
     def draw(self):
         self.canvas.delete("all")
         for x, y, c in self.display_list:
@@ -194,13 +194,22 @@ class Browser:
         self.draw()
 
     def scrolldown(self, e):
+        if self.display_list[-1][1] <= HEIGHT or self.display_list[-1][1] <= HEIGHT+self.scroll:
+            return
         self.scroll += SCROLL_STEP
         self.draw()
 
     def scrollup(self,e):
+        if self.scroll == 0:
+            return
         self.scroll -= SCROLL_STEP
         self.draw()
 
+    def _on_mousewheel(self, event):
+        if int(event.delta) < 0:
+            self.scrolldown(1)
+        else:
+            self.scrollup(1)
 
 if __name__ == "__main__":
     import sys
