@@ -10,7 +10,7 @@ machine_type = platform.machine()
 WIDTH, HEIGHT = 800, 600
 HSTEP, VSTEP = 13, 18
 SCROLL_STEP = 100
-
+#TODO handle returning content when it's not enocded
 class URL:
     max_redirects = 3
 
@@ -170,16 +170,21 @@ def layout(text):
 class Browser:
     def __init__(self):
         self.window = tkinter.Tk()
+        self.window.geometry(f'{WIDTH}x{HEIGHT}')
 
         self.canvas = tkinter.Canvas(self.window, width=WIDTH, height=HEIGHT)
-        self.canvas.pack()
+        self.canvas.pack(fill="both", expand=True)
 
         self.display_list = []
-
         self.scroll = 0
+        self.text = ''
+
         self.window.bind("<Down>", self.scrolldown)
         self.window.bind("<Up>", self.scrollup)
+        self.window.bind("<Configure>", self.resize)
+
         self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+
     def draw(self):
         self.canvas.delete("all")
         for x, y, c in self.display_list:
@@ -189,8 +194,8 @@ class Browser:
 
     def load(self, url):
         body = url.request()
-        text = lex(body)
-        self.display_list = layout(text)
+        self.text = lex(body)
+        self.display_list = layout(self.text)
         self.draw()
 
     def scrolldown(self, e):
@@ -210,6 +215,14 @@ class Browser:
             self.scrolldown(1)
         else:
             self.scrollup(1)
+
+    def resize(self, event):
+        global HEIGHT,WIDTH
+        HEIGHT = event.height
+        WIDTH = event.width
+        self.canvas.config(width=WIDTH,height=HEIGHT)
+        self.display_list = layout(self.text)
+        self.draw()
 
 if __name__ == "__main__":
     import sys
