@@ -10,7 +10,6 @@ machine_type = platform.machine()
 WIDTH, HEIGHT = 800, 600
 HSTEP, VSTEP = 13, 18
 SCROLL_STEP = 100
-#TODO handle returning content when it's not enocded
 class URL:
     max_redirects = 3
 
@@ -177,6 +176,8 @@ class Browser:
 
         self.display_list = []
         self.scroll = 0
+        self.scroll_bar_position = 5
+        self.scroll_step_ratio = 0
         self.text = ''
 
         self.window.bind("<Down>", self.scrolldown)
@@ -192,6 +193,12 @@ class Browser:
             if y + VSTEP < self.scroll: continue
             self.canvas.create_text(x, y - self.scroll, text=c)
 
+        scroll_bar_height = (HEIGHT / self.display_list[-1][1]) * HEIGHT
+        self.scroll_step_ratio = (HEIGHT - scroll_bar_height) / ((self.display_list[-1][1] - HEIGHT) / SCROLL_STEP)
+        if (self.display_list[-1][1] > HEIGHT):
+            self.scrollbar = self.canvas.create_rectangle(WIDTH, 0, WIDTH-10, HEIGHT, outline="grey", fill="blue")
+            self.scroll_handle = self.canvas.create_rectangle(WIDTH, self.scroll_bar_position, WIDTH-10, self.scroll_bar_position + scroll_bar_height, fill="white")
+
     def load(self, url):
         body = url.request()
         self.text = lex(body)
@@ -202,12 +209,14 @@ class Browser:
         if self.display_list[-1][1] <= HEIGHT or self.display_list[-1][1] <= HEIGHT+self.scroll:
             return
         self.scroll += SCROLL_STEP
+        self.scroll_bar_position += self.scroll_step_ratio
         self.draw()
 
     def scrollup(self,e):
         if self.scroll == 0:
             return
         self.scroll -= SCROLL_STEP
+        self.scroll_bar_position -= self.scroll_step_ratio
         self.draw()
 
     def _on_mousewheel(self, event):
@@ -221,6 +230,7 @@ class Browser:
         HEIGHT = event.height
         WIDTH = event.width
         self.canvas.config(width=WIDTH,height=HEIGHT)
+        self.scroll_bar_position = 5
         self.display_list = layout(self.text)
         self.draw()
 
